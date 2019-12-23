@@ -1,0 +1,77 @@
+diff --git a/wand1.c b/wand1.c
+index aa0f874..58eb084 100755
+--- a/wand1.c
++++ b/wand1.c
+@@ -3,6 +3,7 @@
+ #include	<string.h>
+ #include	<time.h>
+ #include	<unistd.h>
++#include	<signal.h>
+ #include	"wanddef.h"
+ /*
+ **      WANDER -- Non-deterministic fantasy story tool
+@@ -29,6 +30,8 @@ uid_t	myeuid() { return(geteuid()); }	// normally in glib
+ 
+ extern	long    wtell();
+ extern	FILE	*fopen(), *wopen();
++extern	int		wseek(FILE *fp, long addr, int mode);
++extern	int		wclose(FILE *fp);
+ 
+ int
+ main(argc, argv)
+diff --git a/wand2.c b/wand2.c
+index c403e01..def7510 100755
+--- a/wand2.c
++++ b/wand2.c
+@@ -1,6 +1,9 @@
+ #include	<stdio.h>
+ #include	<stdlib.h>
+ #include	<string.h>
++#include 	<fcntl.h>
++#include 	<time.h>
++#include 	<unistd.h>
+ #include	"wanddef.h"
+ /*
+ **      WANDER -- Non-deterministic fantasy story tool
+@@ -24,6 +27,8 @@ extern	long    ungotaddr;        /* addr of begin of last ungetlin() line */
+ extern	char	*ctime();
+ extern	long    wtell();
+ extern	FILE	*fopen(), *wopen();
++extern	int		wseek(FILE *fp, long addr, int mode);
++extern	int		wgetc(FILE *fp);
+ 
+ void
+ restart(name)                       /* (init) restart from specified files */
+@@ -278,7 +283,7 @@ store(string)		// copy string into storebuf and return a pointer to it
+ char	*string;
+ {
+         char *cp;
+-	extern char *sbrk();
++	// extern char *sbrk();
+ 
+ 	if (storebp == 0) {
+ 	    if ((storebp = storebuf = sbrk(storenleft = 4096)) == (char *) -1) {
+@@ -436,7 +441,7 @@ restore(char *file, int flag)
+ {
+ 	char *cp, newname[PATHLENGTH];
+ 	int then, diff, i, fh;
+-	extern char *sbrk();
++	// extern char *sbrk();
+ 
+ 	if (*file == '\0') {
+ 	    for (cp = file = curname; *cp; )
+diff --git a/wanddef.h b/wanddef.h
+index fad3961..8d0bd91 100755
+--- a/wanddef.h
++++ b/wanddef.h
+@@ -12,8 +12,8 @@
+ **          (also check `wandglb.c' for other modifiable parameters).
+ */
+ 
+-#define GAMESPATH(X)	"/Users/psl/Games+Toys/X"
+-#define	WANDPATH(X)	GAMESPATH(Wander/X)			  /* (MOD) */
++#define GAMESPATH(X)	"wander_src/"#X
++#define	WANDPATH(X)	GAMESPATH(X)			  /* (MOD) */
+ 
+ 		      /* numbers in [] are #bytes data space used for each */
+ #define MAXLOCS     1024                        /* [2] max locations (MOD) */
