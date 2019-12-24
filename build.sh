@@ -29,6 +29,6 @@ if [[ $DO_COMPILE == 1 ]]; then
 	emcc $WANDER_SRC_DIR/*.c  --preload-file $WANDER_SRC_DIR/a3.misc --preload-file $WANDER_SRC_DIR/a3.wrld -w -o $WANDER_OUT
 fi
 
-ln -s $(pwd)/src/* bin
+ln -sf $(pwd)/src/* bin
 
 
