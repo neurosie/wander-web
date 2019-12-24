@@ -29,3 +29,6 @@ This will download, patch, and compile the [original Wander source](https://gith
 
 ### Running 
 Because of the way emscripten works, you can't just open `index.html` in your browser, you need a web server. The easiest way to do this is to run `python3 -m http.server` from the `bin` directory.
+
+## Acknowledgements
+Thanks to Peter Langston for the original game, and for giving me permission to port it.
