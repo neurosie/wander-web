@@ -6,9 +6,7 @@ WANDER_OUT="$OUT_DIR/wander.js"
 
 if [[ ! -d $WANDER_SRC_DIR ]]; then
 	git clone https://github.com/shmup/wander.git $WANDER_SRC_DIR
-	cd $WANDER_SRC_DIR
-	git apply ../port.patch
-	cd ..
+	$(cd $WANDER_SRC_DIR && git apply ../port.patch)
 fi
 
 DO_COMPILE=1
@@ -17,6 +15,7 @@ if [[ -e $WANDER_OUT ]]; then
 	DO_COMPILE=0
 	for file in $WANDER_SRC_DIR/*.{c,h}; do
 		if [[ $file -nt $WANDER_OUT ]]; then
+			$(cd $WANDER_SRC_DIR && git diff *.{c,h} > ../port.patch)
 			DO_COMPILE=1
 			break
 		fi
