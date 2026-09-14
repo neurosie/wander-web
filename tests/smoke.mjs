@@ -55,8 +55,34 @@ const browser = await chromium.launch(
 );
 const page = await browser.newPage({ viewport: { width: 1100, height: 700 } });
 
+// Capture everything the page can tell us -- a module that fails to start
+// usually says so on the console or in a failed request, not as a page error.
 const pageErrors = [];
+const notes = [];
 page.on('pageerror', (e) => pageErrors.push(String(e)));
+page.on('console', (m) => notes.push(`console.${m.type()}: ${m.text()}`));
+page.on('requestfailed', (r) =>
+  notes.push(`requestfailed: ${r.url()} ${r.failure()?.errorText ?? ''}`));
+page.on('response', (r) => {
+  if (r.status() >= 400) notes.push(`http ${r.status()}: ${r.url()}`);
+});
+
+const diagnose = async () => {
+  const probe = await page
+    .evaluate(() => ({
+      typeofModule: typeof Module,
+      calledRun: typeof Module !== 'undefined' ? Module.calledRun : null,
+      ptyWired: typeof Module !== 'undefined' && !!Module.pty,
+      moduleKeys: typeof Module !== 'undefined' ? Object.keys(Module).slice(0, 30) : null,
+      scripts: [...document.querySelectorAll('script')].map((e) => e.getAttribute('src') ?? '(inline)'),
+    }))
+    .catch((e) => ({ probeFailed: String(e) }));
+  return (
+    '\n--- page notes ---\n' + (notes.join('\n') || 'none') +
+    '\n\n--- page errors ---\n' + (pageErrors.join('\n') || 'none') +
+    '\n\n--- probe ---\n' + JSON.stringify(probe, null, 2)
+  );
+};
 
 const screen = () => page.evaluate(readTerminal);
 const expect = async (what, text, timeout = 60000) => {
@@ -70,7 +96,7 @@ const expect = async (what, text, timeout = 60000) => {
   } catch {
     console.error(`FAIL  ${what}: never saw ${JSON.stringify(text)}`);
     console.error('\n--- terminal ---\n' + (await screen()));
-    console.error('\n--- page errors ---\n' + (pageErrors.join('\n') || 'none'));
+    console.error(await diagnose());
     await browser.close();
     server.close();
     process.exit(1);
@@ -100,7 +126,7 @@ await send('quit');
 await expect('quit exits cleanly', 'wander exited (0)');
 
 if (pageErrors.length) {
-  console.error('FAIL  page reported errors:\n' + pageErrors.join('\n'));
+  console.error('FAIL  page reported errors:' + (await diagnose()));
   await browser.close();
   server.close();
   process.exit(1);
