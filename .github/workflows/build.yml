@@ -1,0 +1,62 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EMSDK_VERSION: '6.0.9'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Emscripten ${{ env.EMSDK_VERSION }}
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git
+          ./emsdk/emsdk install "$EMSDK_VERSION"
+          ./emsdk/emsdk activate "$EMSDK_VERSION"
+          . ./emsdk/emsdk_env.sh
+          {
+            echo "EMSDK=$EMSDK"
+            echo "EM_CONFIG=$EM_CONFIG"
+            echo "EMSDK_NODE=$EMSDK_NODE"
+          } >> "$GITHUB_ENV"
+          echo "$EMSDK/upstream/emscripten" >> "$GITHUB_PATH"
+
+      - run: emcc --version
+
+      - run: npm ci
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Install Chromium for the smoke test
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke test
+        run: node tests/smoke.mjs
+
+      - name: Collect site
+        # bin/ is symlinks into src/, so dereference them for a standalone copy.
+        run: cp -rL bin _site
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wander-web
+          path: _site

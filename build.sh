@@ -7,8 +7,8 @@ VENDOR_DIR="$OUT_DIR/vendor"
 PTY_JS_LIBRARY="node_modules/xterm-pty/emscripten-pty.js"
 
 if [[ ! -d $WANDER_SRC_DIR ]]; then
-	git clone https://github.com/shmup/wander.git $WANDER_SRC_DIR
-	$(cd $WANDER_SRC_DIR && git apply ../port.patch)
+	git clone https://github.com/shmup/wander.git $WANDER_SRC_DIR || exit 1
+	(cd $WANDER_SRC_DIR && git apply ../port.patch) || exit 1
 fi
 
 if [[ ! -e $PTY_JS_LIBRARY ]]; then
@@ -21,7 +21,7 @@ if [[ -e $WANDER_OUT ]]; then
 	DO_COMPILE=0
 	for file in $WANDER_SRC_DIR/*.{c,h}; do
 		if [[ $file -nt $WANDER_OUT ]]; then
-			$(cd $WANDER_SRC_DIR && git diff *.{c,h} > ../port.patch)
+			(cd $WANDER_SRC_DIR && git diff *.{c,h} > ../port.patch)
 			DO_COMPILE=1
 			break
 		fi
