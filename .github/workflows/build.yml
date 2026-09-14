@@ -52,6 +52,13 @@ jobs:
       - name: Build
         run: ./build.sh
 
+      - name: Check the build actually produced a module
+        run: |
+          ls -la bin
+          test -f bin/wander.js
+          test -f bin/wander.wasm
+          test -f bin/wander.data
+
       - name: Install Chromium for the smoke test
         run: npx playwright install --with-deps chromium
 

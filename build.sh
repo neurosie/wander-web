@@ -41,13 +41,20 @@ if [[ $DO_COMPILE == 1 ]]; then
 		--js-library $PTY_JS_LIBRARY \
 		--preload-file $WANDER_SRC_DIR/a3.misc \
 		--preload-file $WANDER_SRC_DIR/a3.wrld \
-		-w -o $WANDER_OUT
+		-w -o $WANDER_OUT || exit 1
+fi
+
+# A missing wander.js used to sail through: the script ends in `ln -sf`, so a
+# failed compile exited 0 and left a bin/ that served a 404 for the module.
+if [[ ! -e $WANDER_OUT ]]; then
+	echo "build.sh: $WANDER_OUT was not produced" >&2
+	exit 1
 fi
 
 mkdir -p $VENDOR_DIR
-cp node_modules/@xterm/xterm/lib/xterm.js $VENDOR_DIR/xterm.js
-cp node_modules/@xterm/xterm/css/xterm.css $VENDOR_DIR/xterm.css
-cp node_modules/@xterm/addon-fit/lib/addon-fit.js $VENDOR_DIR/addon-fit.js
-cp node_modules/xterm-pty/index.js $VENDOR_DIR/xterm-pty.js
+cp node_modules/@xterm/xterm/lib/xterm.js $VENDOR_DIR/xterm.js || exit 1
+cp node_modules/@xterm/xterm/css/xterm.css $VENDOR_DIR/xterm.css || exit 1
+cp node_modules/@xterm/addon-fit/lib/addon-fit.js $VENDOR_DIR/addon-fit.js || exit 1
+cp node_modules/xterm-pty/index.js $VENDOR_DIR/xterm-pty.js || exit 1
 
 ln -sf $(pwd)/src/* bin
