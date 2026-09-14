@@ -13,7 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  EMSDK_VERSION: '6.0.9'
+  # Not EMSDK_VERSION: emsdk_env.sh uses that name itself and clears it.
+  EMSCRIPTEN_VERSION: '6.0.9'
 
 jobs:
   build:
@@ -26,17 +27,22 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install Emscripten ${{ env.EMSDK_VERSION }}
+      - name: Install Emscripten ${{ env.EMSCRIPTEN_VERSION }}
         run: |
           git clone --depth 1 https://github.com/emscripten-core/emsdk.git
-          ./emsdk/emsdk install "$EMSDK_VERSION"
-          ./emsdk/emsdk activate "$EMSDK_VERSION"
+          ./emsdk/emsdk install "$EMSCRIPTEN_VERSION"
+          ./emsdk/emsdk activate "$EMSCRIPTEN_VERSION"
           . ./emsdk/emsdk_env.sh
-          {
-            echo "EMSDK=$EMSDK"
-            echo "EM_CONFIG=$EM_CONFIG"
-            echo "EMSDK_NODE=$EMSDK_NODE"
-          } >> "$GITHUB_ENV"
+          # Export only the variables emsdk actually set. Writing an empty
+          # EM_CONFIG is worse than leaving it unset: it overrides emcc's own
+          # config discovery, and emcc then fails to find wasm-opt.
+          for var in EMSDK EMSDK_NODE EMSDK_PYTHON EM_CONFIG EM_CACHE; do
+            value="${!var-}"
+            if [ -n "$value" ]; then
+              echo "$var=$value" >> "$GITHUB_ENV"
+            fi
+          done
+          echo "$EMSDK" >> "$GITHUB_PATH"
           echo "$EMSDK/upstream/emscripten" >> "$GITHUB_PATH"
 
       - run: emcc --version
