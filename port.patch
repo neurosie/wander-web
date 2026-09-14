@@ -1,5 +1,5 @@
 diff --git a/wand1.c b/wand1.c
-index aa0f874..58eb084 100755
+index aa0f874..6e4ae19 100755
 --- a/wand1.c
 +++ b/wand1.c
 @@ -3,6 +3,7 @@
@@ -19,8 +19,17 @@ index aa0f874..58eb084 100755
  
  int
  main(argc, argv)
+@@ -36,7 +39,7 @@ char     *argv[];
+ {
+ 	char *cp;
+ 	int i, beforeloc;
+-	long t_then, t_now;
++	time_t t_then, t_now;
+ 	struct tm *tp;
+ 
+         setup(argc, argv);
 diff --git a/wand2.c b/wand2.c
-index c403e01..3a6c925 100755
+index c403e01..b7a7fd6 100755
 --- a/wand2.c
 +++ b/wand2.c
 @@ -1,6 +1,9 @@
@@ -92,15 +101,28 @@ index c403e01..3a6c925 100755
  
  	if (storebp == 0) {
  	    if ((storebp = storebuf = sbrk(storenleft = 4096)) == (char *) -1) {
-@@ -436,7 +442,7 @@ restore(char *file, int flag)
+@@ -435,8 +441,9 @@ void
+ restore(char *file, int flag)
  {
  	char *cp, newname[PATHLENGTH];
- 	int then, diff, i, fh;
+-	int then, diff, i, fh;
 -	extern char *sbrk();
++	int diff, i, fh;
++	time_t then;
 +	// extern char *sbrk();
  
  	if (*file == '\0') {
  	    for (cp = file = curname; *cp; )
+@@ -451,7 +458,8 @@ restore(char *file, int flag)
+             exit(1);
+         }
+ 	i = read(fh, &param, sizeof (struct paramstr));
+-	printf("saved %s", ctime(&param.p_time));
++	then = param.p_time;			// p_time is narrower than time_t
++	printf("saved %s", ctime(&then));
+ 	i = read(fh, newname, PATHLENGTH);
+ 	printf(".");
+ 	if (get_files(newname, flag) == -1)
 diff --git a/wanddef.h b/wanddef.h
 index fad3961..d03fd18 100755
 --- a/wanddef.h
