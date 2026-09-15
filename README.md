@@ -38,6 +38,19 @@ npm start
 
 which serves `bin` on http://localhost:8000 (equivalent to running `python3 -m http.server` from `bin`).
 
+To play the browser build in a browser without building it yourself, the Build
+workflow publishes `master` to GitHub Pages, and uploads the built `bin/` as a
+downloadable artifact for every run.
+
+### Testing
+```
+npm test
+```
+
+loads the built page in headless Chromium and plays a few moves. Needs
+`npx playwright install chromium` once, or set `CHROMIUM_PATH` to a Chromium you
+already have.
+
 ## The terminal
 
 Wander is an ordinary Unix terminal program: it writes to stdout and reads
@@ -73,9 +86,12 @@ first:
 
 ## Status
 
-The game logic runs and is playable: you can pick up the credit card, check your
-balance and walk west into customs. Three things had to be fixed to get there,
-all in `port.patch`:
+It plays. Every push builds the port with a pinned Emscripten and then plays it
+in a headless browser -- takes the credit card, checks the balance, quits -- so
+"it compiles" and "it runs" are both checked. See `.github/workflows/build.yml`
+and `tests/smoke.mjs`.
+
+Four things had to be fixed to get there. The first three are in `port.patch`:
 
 * `wanddef.h` declared `struct paramstr { ... } param;` in the header, giving
   every translation unit a tentative definition of `param`. Compilers used to
@@ -87,9 +103,20 @@ all in `port.patch`:
   calls with a trapping stub -- and `objdesc()` is called to describe the credit
   card lying in the very first room. It now takes the buffer its callers were
   already passing.
-* The build needs `-std=gnu89`. This is 1974 K&R C: C23 removed old-style
-  function definitions outright, so a modern clang default will eventually
-  reject it.
+* `main()` timed the session in a `long`, but `time_t` is 64-bit on current
+  Emscripten while `long` is 32-bit on wasm32, so `time()` and `localtime()`
+  wrote and read four bytes past it. clang reports this as an error rather than
+  a warning, so `-w` does not hide it. `wand2.c` had the same bug concealed by a
+  prototype-less `extern char *ctime()`, which switched the argument check off.
+
+The fourth is in `build.sh`, which never checked emcc's exit status. Because the
+script ends in `ln -sf`, a failed compile exited 0 and left a `bin/` holding
+symlinks and vendored assets but no program -- so a broken build looked like a
+successful one, in CI and locally alike.
+
+The build also needs `-std=gnu89`. This is 1974 K&R C, and C23 removed old-style
+function definitions outright, so a modern clang default will eventually reject
+it.
 
 ## Acknowledgements
 Thanks to Peter Langston for the original game, and for giving me permission to port it.
