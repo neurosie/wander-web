@@ -1,5 +1,5 @@
 diff --git a/wand1.c b/wand1.c
-index aa0f874..58eb084 100755
+index aa0f874..6e4ae19 100755
 --- a/wand1.c
 +++ b/wand1.c
 @@ -3,6 +3,7 @@
@@ -19,8 +19,17 @@ index aa0f874..58eb084 100755
  
  int
  main(argc, argv)
+@@ -36,7 +39,7 @@ char     *argv[];
+ {
+ 	char *cp;
+ 	int i, beforeloc;
+-	long t_then, t_now;
++	time_t t_then, t_now;
+ 	struct tm *tp;
+ 
+         setup(argc, argv);
 diff --git a/wand2.c b/wand2.c
-index c403e01..def7510 100755
+index c403e01..b7a7fd6 100755
 --- a/wand2.c
 +++ b/wand2.c
 @@ -1,6 +1,9 @@
@@ -42,7 +51,48 @@ index c403e01..def7510 100755
  
  void
  restart(name)                       /* (init) restart from specified files */
-@@ -278,7 +283,7 @@ store(string)		// copy string into storebuf and return a pointer to it
+@@ -77,30 +82,31 @@ takeobj(obj)
+ }
+ 
+ char	*
+-objdesc(pre, art, wp, post)  /* assemble an object description in buf */
+-char	*pre, *art, *post;
++objdesc(pre, art, wp, post, buf, bufsize)  /* assemble an object description in buf */
++char	*pre, *art, *post, *buf;
++int	bufsize;
+ struct  wrdstr  *wp;
+ {
+-	char *cp, buf[1024];
++	char *cp;
+ 
+ 	if (wp->w_flg & W_ASIS) {		// don't augment the description
+ 	    cp = wp->w_word;
+ 	} else {				// do augment the description
+ 	    if (pre == (char *) 0) {           /* implies location description */
+-		cp = cpyn(buf, thereis[class(wp)], sizeof(buf) - 1);
++		cp = cpyn(buf, thereis[class(wp)], bufsize - 1);
+ 	    } else {                             /* not a location description */
+-		cp = strncpy(buf, pre, sizeof(buf) - 1);
++		cp = strncpy(buf, pre, bufsize - 1);
+ 		if (wp->w_flg & W_DONLY)
+ 		    wp++;
+ 	    }
+ 	    if ((wp->w_flg & (W_NOART | W_ASIS)) == 0) {  /* if article needed */
+ 		if (art)				      /* specified article */
+-		    cp = cpyn(cp, art, buf + sizeof(buf) - cp - 1);
++		    cp = cpyn(cp, art, buf + bufsize - cp - 1);
+ 		else					/* default article */
+-		    cp = cpyn(cp, aansome[class(wp)], buf + sizeof(buf) - cp - 1);
++		    cp = cpyn(cp, aansome[class(wp)], buf + bufsize - cp - 1);
+ 	    }
+-	    cp = cpyn(cp, wp->w_word, buf + sizeof(buf) - cp - 1);
+-	    cpyn(cp, post, buf + sizeof(buf) - cp - 1);
++	    cp = cpyn(cp, wp->w_word, buf + bufsize - cp - 1);
++	    cpyn(cp, post, buf + bufsize - cp - 1);
+ 	    cp = buf;
+ 	}
+ 	return(deparity(cp));
+@@ -278,7 +284,7 @@ store(string)		// copy string into storebuf and return a pointer to it
  char	*string;
  {
          char *cp;
@@ -51,17 +101,30 @@ index c403e01..def7510 100755
  
  	if (storebp == 0) {
  	    if ((storebp = storebuf = sbrk(storenleft = 4096)) == (char *) -1) {
-@@ -436,7 +441,7 @@ restore(char *file, int flag)
+@@ -435,8 +441,9 @@ void
+ restore(char *file, int flag)
  {
  	char *cp, newname[PATHLENGTH];
- 	int then, diff, i, fh;
+-	int then, diff, i, fh;
 -	extern char *sbrk();
++	int diff, i, fh;
++	time_t then;
 +	// extern char *sbrk();
  
  	if (*file == '\0') {
  	    for (cp = file = curname; *cp; )
+@@ -451,7 +458,8 @@ restore(char *file, int flag)
+             exit(1);
+         }
+ 	i = read(fh, &param, sizeof (struct paramstr));
+-	printf("saved %s", ctime(&param.p_time));
++	then = param.p_time;			// p_time is narrower than time_t
++	printf("saved %s", ctime(&then));
+ 	i = read(fh, newname, PATHLENGTH);
+ 	printf(".");
+ 	if (get_files(newname, flag) == -1)
 diff --git a/wanddef.h b/wanddef.h
-index fad3961..8d0bd91 100755
+index fad3961..d03fd18 100755
 --- a/wanddef.h
 +++ b/wanddef.h
 @@ -12,8 +12,8 @@
@@ -75,3 +138,13 @@ index fad3961..8d0bd91 100755
  
  		      /* numbers in [] are #bytes data space used for each */
  #define MAXLOCS     1024                        /* [2] max locations (MOD) */
+@@ -137,7 +137,8 @@ struct  paramstr {
+ 	int     p_time;		// when this file was saved
+ 	off_t	p_msize;	// size of the .misc file
+ 	off_t	p_wsize;	// size of the .wrld file
+-} param;
++};
++extern	struct	paramstr    param;		    /* defined in wandglb.c */
+ 
+ struct  placestr {
+ 	int     p_loc;

@@ -1,0 +1,118 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Not EMSDK_VERSION: emsdk_env.sh uses that name itself and clears it.
+  EMSCRIPTEN_VERSION: '6.0.9'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Emscripten ${{ env.EMSCRIPTEN_VERSION }}
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git
+          ./emsdk/emsdk install "$EMSCRIPTEN_VERSION"
+          ./emsdk/emsdk activate "$EMSCRIPTEN_VERSION"
+          . ./emsdk/emsdk_env.sh
+          # Export only the variables emsdk actually set. Writing an empty
+          # EM_CONFIG is worse than leaving it unset: it overrides emcc's own
+          # config discovery, and emcc then fails to find wasm-opt.
+          for var in EMSDK EMSDK_NODE EMSDK_PYTHON EM_CONFIG EM_CACHE; do
+            value="${!var-}"
+            if [ -n "$value" ]; then
+              echo "$var=$value" >> "$GITHUB_ENV"
+            fi
+          done
+          echo "$EMSDK" >> "$GITHUB_PATH"
+          echo "$EMSDK/upstream/emscripten" >> "$GITHUB_PATH"
+
+      - run: emcc --version
+
+      - run: npm ci
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Check the build actually produced a module
+        run: |
+          ls -la bin
+          test -f bin/wander.js
+          test -f bin/wander.wasm
+          test -f bin/wander.data
+
+      - name: Install Chromium for the smoke test
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke test
+        run: node tests/smoke.mjs
+
+      - name: Inspect build output
+        if: failure()
+        run: |
+          ls -la bin || true
+          echo '--- first 1200 bytes of the generated glue ---'
+          head -c 1200 bin/wander.js || true
+          echo
+          echo '--- module-shape markers ---'
+          grep -n -m 8 -E 'export default|import\.meta|moduleArg|MODULARIZE|readyPromise' bin/wander.js || true
+
+      - name: Collect site
+        # bin/ is symlinks into src/, so dereference them for a standalone copy.
+        run: cp -rL bin _site
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wander-web
+          path: _site
+
+      - name: Upload build output for debugging
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wander-web-debug
+          path: bin
+          if-no-files-found: ignore
+
+  # Publishes to GitHub Pages, but only from the default branch or a manual
+  # run, so a feature branch doesn't overwrite the live site by accident.
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wander-web
+          path: _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
